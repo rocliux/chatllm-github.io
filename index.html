@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>聊天工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+      width: 100vw; /* 确保填满横向 */
+      margin: 0;
+      background-color: #f0f2f5;
+    }
+
+    #container {
+      display: flex;
+      width: 100%;
+      height: 100%; /* 确保填满剩下的区域 */
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #sidebar {
+      width: 25%;
+      max-width: 240px; /* 添加最大宽度 */
+      min-width: 200px;
+      background-color: #fff;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e0e0e0;
+    }
+
+    #sidebar-header {
+      padding: 20px;
+      background-color: #3b5998;
+      color: #fff;
+      font-size: 1.2em;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: center;
+    }
+
+    #sidebar-content {
+      flex: 1;
+      padding: 0; /* 移除内边距 */
+      overflow-y: auto;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 20px; /* 调整内边距 */
+      cursor: pointer;
+      transition: background-color 0.3s;
+      border-bottom: 1px solid #e0e0e0; /* 添加底部边框 */
+    }
+
+    .contact-item:hover {
+      background-color: #e0e0e0; /* 鼠标悬停时的背景颜色 */
+    }
+
+    .contact-item img {
+      width: 36px; /* 调整头像大小 */
+      height: 36px;
+      margin-right: 10px;
+      border-radius: 50%; /* 圆形头像 */
+    }
+
+    #chat-area {
+      flex: 1; /* 确保填满剩下的区域 */
+      display: flex;
+      flex-direction: column;
+      background-color: #fff;
+    }
+
+    #chat-header {
+      padding: 20px;
+      background-color: #3b5998;
+      color: #fff;
+      font-size: 1.2em;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: center;
+    }
+
+    #chat-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      border-top: 1px solid #e0e0e0;
+      display: flex; /* 添加 */
+      flex-direction: column; /* 添加 */
+    }
+
+    .message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 10px;
+      word-wrap: break-word;
+      display: inline-block; /* 使气泡宽度根据文本内容自动调整 */
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+
+    .received {
+      align-self: flex-start;
+      background-color: #e0f7fa;
+      text-align: left;
+      display: flex;
+      flex-direction: column; /* Changed to column */
+    }
+
+    .sent {
+      align-self: flex-end;
+      background-color: #c8e6c9;
+      text-align: left; /* Changed to left */
+      margin-left: auto;
+      display: flex;
+      flex-direction: column; /* Changed to column */
+      align-items: flex-end; /* Added to right-align avatar and timestamp */
+    }
+
+    .message-content {
+      display: flex;
+      flex-direction: column;
+      margin-left: 10px; /* Adjusted left margin to 1 character */
+      text-align: left; /* Ensure text is left-aligned */
+    }
+
+    .timestamp {
+      font-size: 0.8em;
+      color: #888;
+      margin-top: 5px;
+      display: block;
+      align-self: flex-end; /* Added to right-align timestamp */
+    }
+
+    .sender-name {
+      display: none; /* Hide sender name */
+    }
+
+    #message-input-container {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #e0e0e0;
+      background-color: #f9f9f9;
+    }
+
+    #message-input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 5px;
+      margin-right: 10px;
+      height: auto;
+      min-height: 60px;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    #send-button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #send-button:hover {
+      background-color: #0056b3;
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .schedule-table th, .schedule-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+
+    .schedule-table th {
+      background-color: #f2f2f2;
+      text-align: left;
+    }
+
+    .schedule-table td {
+      vertical-align: top;
+    }
+
+    .schedule-table .time-slot {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    .schedule-table .activity {
+      margin: 5px 0;
+    }
+
+    pre {
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    pre button {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-size: 0.8em;
+      padding: 2px 5px;
+      cursor: pointer;
+    }
+
+    code {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #f8f8f8;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="container">
+    <div id="sidebar">
+      <div id="sidebar-header">模型列表</div>
+      <div id="sidebar-content">
+        <div class="contact-item"><img src="Chat_GPT_photos.webp" alt="icon">GPT-4o</div>
+      </div>
+    </div>
+
+    <div id="chat-area">
+      <div id="chat-header">与 GPT-4o 的对话</div>
+      <div id="chat-content"></div>
+
+      <div id="message-input-container">
+        <textarea id="message-input" placeholder="请输入文本信息"></textarea>
+        <button id="send-button">发送</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const chatContent = document.getElementById('chat-content');
+
+    const API_KEY = 'sk-dUtDRqGt4Lh6X6lJacuCfkdrvv5UwHQDh4n8UbCO1bv7cNYt'; // 请替换为你的 API 密钥
+    const PROXY_URL = 'http://one.test.wangtanai.com/v1/chat/completions';
+
+    async function sendMessage() {
+      const messageText = messageInput.value.trim();
+      if (messageText === '') return;
+
+      // 禁用发送按钮
+      sendButton.disabled = true;
+      sendButton.style.backgroundColor = 'red';
+      sendButton.textContent = '思考中';
+
+      // 移除输入框的 Enter 事件监听
+      messageInput.removeEventListener('keydown', handleEnterPress);
+
+      addMessageToChat('sent', messageText);
+      messageInput.value = '';
+
+      try {
+        const response = await axios.post(PROXY_URL, {
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: messageText }],
+          max_tokens: 4096
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          }
+        });
+
+        const aiMessageText = response.data.choices[0].message.content.trim();
+        addMessageToChat('received', aiMessageText);
+      } catch (error) {
+        console.error('Error:', error);
+        let errorMessage = '发送消息失败，请稍后重试。';
+        if (error.response) {
+          errorMessage += ` 错误信息: ${JSON.stringify(error.response.data)}`;
+        } else if (error.request) {
+          errorMessage += ' 未收到响应，请检查网络连接。';
+        } else {
+          errorMessage += ` 错误信息: ${error.message}`;
+        }
+        addMessageToChat('received', errorMessage);
+      } finally {
+        // 恢复发送按钮和输入框的 Enter 事件监听
+        sendButton.disabled = false;
+        sendButton.style.backgroundColor = '#007bff';
+        sendButton.textContent = '发送';
+        messageInput.addEventListener('keydown', handleEnterPress);
+      }
+    }
+
+    function handleEnterPress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function addMessageToChat(type, text) {
+      const message = document.createElement('div');
+      message.className = `message ${type}`;
+      
+      // 使用 marked 库解析 Markdown
+      const content = marked.parse(text);
+
+      message.innerHTML = `
+        <img src="Chat_GPT_photos.webp" alt="头像" class="avatar">
+        <div class="message-content">
+          ${content}
+          <span class="timestamp">${new Date().toLocaleString()}</span>
+        </div>
+      `;
+
+      // 检测代码块并添加复制按钮
+      const codeBlocks = message.querySelectorAll('pre code');
+      codeBlocks.forEach(codeBlock => {
+        const copyButton = document.createElement('button');
+        copyButton.textContent = '复制';
+        copyButton.style.position = 'absolute';
+        copyButton.style.top = '5px';
+        copyButton.style.right = '5px';
+        copyButton.style.fontSize = '0.8em';
+        copyButton.style.padding = '2px 5px';
+        copyButton.style.cursor = 'pointer';
+
+        copyButton.addEventListener('click', () => {
+          navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+            alert('代码已复制到粘贴板');
+          }).catch(err => {
+            console.error('复制失败:', err);
+          });
+        });
+
+        const pre = codeBlock.parentElement;
+        pre.style.position = 'relative';
+        pre.appendChild(copyButton);
+      });
+
+      // 动态设置消息气泡的宽度
+      const charWidth = 14; // 假设每个字符的宽度为14px
+      const padding = 2 * charWidth; // 两边各空出一个字符的宽度
+      const maxWidth = chatContent.clientWidth * 0.7; // 最宽不超过列表的70%
+      const minWidth = 140; // 最小宽度为120像素
+      const textWidth = text.length * charWidth + padding; // 文本长度加上两个字符的宽度
+      const bubbleWidth = Math.min(maxWidth, Math.max(minWidth, textWidth)); // 计算气泡宽度
+
+      message.style.maxWidth = `${bubbleWidth}px`;
+
+      chatContent.appendChild(message);
+      chatContent.scrollTop = chatContent.scrollHeight;
+    }
+
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keydown', handleEnterPress);
+  </script>
+
+</body>
+
+</html>
